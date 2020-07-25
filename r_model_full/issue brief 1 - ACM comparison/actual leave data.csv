@@ -1,0 +1,14 @@
+var,Leave_Type,label,CA,NJ,RI,source
+eligworker,Eligible Workers,Number of workers eligible for program,17282000,2651326,383712,Actual
+ptake_own,Own Illness,Participated for own illness leave,568461,68692,30000,Actual
+ptake_illspouse,Ill Spouse ,Participated for ill spouse leave,67797,1657,566,Actual
+ptake_illchild,Ill Child,Participated for ill child leave,41998,1470,205,Actual
+ptake_illparent,Ill Parent,Participated for ill parent leave,67551,1747,345,Actual
+ptake_matdis,Maternal Disability,Participated for maternal disability leave,164916,24112,10000,Actual
+ptake_bond,Child Bonding,Participated for bonding with new child leave,199723,25217,3778,Actual
+plen_illspouse,Ill Spouse ,Average weeks received benefits for ill spouse leave,4.6,4.6,4.6,Actual
+plen_illchild,Ill Child,Average weeks received benefits for ill child leave,3.7,3.7,3.7,Actual
+plen_illparent,Ill Parent,Average weeks received benefits for ill parent leave,7.0,7.0,7.0,Actual
+plen_bond,Child Bonding,Average weeks received benefits for bonding with new child leave,5.7,5.7,5.7,Actual
+DI_plen,Own/Maternal ,Average weeks for own illness or maternal disability leave,15.8,15.8,15.8,Actual
+actual_benefits,Benefits,"Benefits Received ($), total",5169808997,506940000,175659993,Actual

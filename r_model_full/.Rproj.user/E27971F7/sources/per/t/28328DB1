@@ -1,0 +1,23 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1595608463778.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "1062415587",
+    "id" : "28328DB1",
+    "lastKnownWriteTime" : 1595547817,
+    "last_content_update" : 1595547817,
+    "path" : "C:/workfiles/Microsimulation/microsim/r_model_full/3_impute_functions.R",
+    "project_path" : "3_impute_functions.R",
+    "properties" : {
+    },
+    "read_only" : false,
+    "read_only_alternatives" : [
+    ],
+    "relative_order" : 4,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}

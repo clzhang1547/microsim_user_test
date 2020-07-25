@@ -1,0 +1,25 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1595608466421.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "3184965561",
+    "id" : "569EBC98",
+    "lastKnownWriteTime" : 1595608473,
+    "last_content_update" : 1595608473235,
+    "path" : "C:/workfiles/Microsimulation/microsim/r_model_full/4_post_impute_functions.R",
+    "project_path" : "4_post_impute_functions.R",
+    "properties" : {
+        "cursorPosition" : "312,3",
+        "scrollLine" : "295"
+    },
+    "read_only" : false,
+    "read_only_alternatives" : [
+    ],
+    "relative_order" : 5,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}

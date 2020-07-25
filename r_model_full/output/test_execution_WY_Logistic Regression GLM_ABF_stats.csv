@@ -1,0 +1,4 @@
+"Variable","Mean","Standard Error of Mean","Confidence Interval","Population Total","Pop Total Standard Error","Pop Total CI"
+"Total Tax Revenue",0,0,"[ 0 , 0 ]",0,0,"[ 0 , 0 ]"
+"Total Taxable Income",66826.4968038489,657.294105871666,"[ 65,538 , 68,115 ]",6942070140.97743,118125384.019029,"[ 6,710,544,388 , 7,173,595,894 ]"
+"State Tax Revenue Recouped from Taxed Benefits",NA,NA,NA,0,NA,NA

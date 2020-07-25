@@ -1,0 +1,8 @@
+{"type": "message", "engine": "Main", "value": "Cleaned data files before CPS imputation."}
+{"type": "progress", "engine": "Main", "value": 10}
+{"type": "message", "engine": "Main", "value": "Applied leave-taking behavioral updates."}
+{"type": "progress", "engine": "Main", "value": 20}
+{"type": "message", "engine": "Main", "value": "Finished FMLA to ACS imputation."}
+{"type": "progress", "engine": "Main", "value": 80}
+{"type": "message", "engine": "Main", "value": "Imputed leave lengths"}
+{"type": "progress", "engine": "Main", "value": 90}
