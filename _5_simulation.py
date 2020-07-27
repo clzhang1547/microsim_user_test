@@ -641,14 +641,18 @@ class SimulationEngine:
                           'Effective takeup = %s. '
                           'Post-sim weighted share = %s' % (t, params['d_takeup'][t], takeup, s_takeup))
 
+        # takeup_any = 1 if any takeup_type = 1
+        acs['takeup_any'] = [int(x.sum() > 0) for x in acs[['takeup_%s' % x for x in params['leave_types']]].values]
+
         # return ACS with all eligible workers (regardless of taker/needer status), with takeup_type flags sim'ed
         return acs
 
 
-    def get_cost(self, sim_num):
-        ## Get takeup cols for main and rep weights, then get costs and costs_rep, se, and ci
+    def get_summary(self, sim_num):
+        ## Get takeup cols for main and rep weights, then get costs/progtakers and costs_rep, progtakers_rep se, and ci
         # no chunking - otherwise will not be using sum of weights for entire acs sample
 
+        ## Update post-sim ACS with takeup flags and annual benefits by type
         # read simulated ACS, and reduce to takers/needers
         fp_acs_sim = '%s/acs_sim_%s_%s.csv' % (self.output_directories[sim_num], self.st, self.out_id)
         output_directory = self.output_directories[sim_num]
@@ -679,36 +683,40 @@ class SimulationEngine:
         message = 'File saved: post-sim ACS with take-up flags and annual benefits simulated.'
         print(message)
 
-        # apply take up flag and weekly benefit cap, and compute total cost, 6 types
-        costs = {}
+        # apply take up flag and weekly benefit cap, and compute total cost, progtaker, 6 types
+        costs, progtakers = {}, {}
         # v is capped weekly benefit (same for all types, assuming no multiple types within 1 week)
         v = [min(x, params['wkbene_cap']) for x in
              ((acs_taker_needer['wage12'] / acs_taker_needer['wkswork'] * acs_taker_needer['effective_rrp']))]
         v = np.array(v)
         # w is inflated weight for missing POW
-        # for each leave type, get program outlay
+        # for each leave type, get program outlay, progtaker
         for t in params['leave_types']:
             # get program cost for leave type t - sumprod of capped benefit, weight, and takeup flag for each ACS row
             w = acs_taker_needer['PWGTP'] * self.pow_pop_multiplier
             costs[t] = (v * acs_taker_needer['cpl_%s' % t] / 5 * w * acs_taker_needer['takeup_%s' % t]).sum()
+            progtakers[t] = int(round((w * acs_taker_needer['takeup_%s' % t]).sum(), 0))
         costs['total'] = sum(list(costs.values()))
+        progtakers['any'] = int(round((w * acs_taker_needer['takeup_any']).sum(), 0))
         print('Completed cost estimation - costs[total] = %s' % costs['total'])
+        print('Completed program taker count estimation - progtakers[any] = %s' % progtakers['any'])
 
         # get takeup flag using 80 rep weights, and get se, ci
         t0_se = time()
-        print('Computing standard errors for cost estimates...')
+        print('Computing standard errors for cost and progtaker estimates...')
         # suffices of rep wt col name PWGTPx x=1~80
         rep_wt_ixs = list(range(1, 81))
         # initialize costs dict from rep weight index to cost profile
         costs_rep = {}
+        progtakers_rep = {}
         for wt in ['PWGTP%s' % x for x in rep_wt_ixs]:
             costs_rep_wt = {}
+            progtakers_rep_wt = {}
             # get takeup_type flags for acs under current rep weight
             # acs_taker_needer contains takeup cols from main weight, but get_acs_with_takeup_flags \
             # has a del step to remove takeup cols
             acs = self.get_acs_with_takeup_flags(acs_taker_needer, acs_neither_taker_needer, wt, params)
             acs_taker_needer = acs[(acs['taker'] == 1) | (acs['needer'] == 1)]
-
             # v is capped weekly benefit (same for all types, assuming no multiple types within 1 week)
             v = [min(x, params['wkbene_cap']) for x in
                  ((acs_taker_needer['wage12'] / acs_taker_needer['wkswork'] * acs_taker_needer['effective_rrp']))]
@@ -718,51 +726,122 @@ class SimulationEngine:
             for t in params['leave_types']:
                 # get program cost for leave type t - sumprod of capped benefit, weight, and takeup flag
                 costs_rep_wt[t] = (v * acs_taker_needer['cpl_%s' % t] / 5 * w * acs_taker_needer['takeup_%s' % t]).sum()
+                # get program taker counts for leave type t - sumprod of weight, and takeup flag
+                progtakers_rep_wt[t] = int(round((w * acs_taker_needer['takeup_%s' % t]).sum(), 0))
             costs_rep_wt['total'] = sum(list(costs_rep_wt.values()))
-            # update cost_rep_chunk
+            progtakers_rep_wt['any'] = int(round((w * acs_taker_needer['takeup_any']).sum(), 0))
+            # update cost_rep
             costs_rep[wt] = costs_rep_wt
+            progtakers_rep[wt] = progtakers_rep_wt
         # end of wt loop
 
         # compute standard error using replication weights, then compute confidence interval (lower bound at 0)
         # methodology reference: https://usa.ipums.org/usa/repwt.shtml
+
+        # costs
         sesq = dict(zip(costs.keys(), [0] * len(costs.keys())))
         for wt in ['PWGTP%s' % x for x in rep_wt_ixs]:
             for k in costs_rep[wt].keys():
                 sesq[k] += 4 / 80 * (costs[k] - costs_rep[wt][k]) ** 2
         for k, v in sesq.items():
             sesq[k] = v ** 0.5
-        ci = {}
+        ci_costs = {}
         for k, v in sesq.items():
-            ci[k] = (max(costs[k] - 1.96 * sesq[k], 0), costs[k] + 1.96 * sesq[k])
-
+            ci_costs[k] = (max(costs[k] - 1.96 * sesq[k], 0), costs[k] + 1.96 * sesq[k])
         t_se = round((time()-t0_se), 0)
-        print('Completed computing standard errrors for cost estimates. Time needed = %s seconds' % t_se)
+
+        # progtakers
+        sesq = dict(zip(progtakers.keys(), [0] * len(progtakers.keys())))
+        for wt in ['PWGTP%s' % x for x in rep_wt_ixs]:
+            for k in progtakers_rep[wt].keys():
+                sesq[k] += 4 / 80 * (progtakers[k] - progtakers_rep[wt][k]) ** 2
+        for k, v in sesq.items():
+            sesq[k] = v ** 0.5
+        ci_progtakers = {}
+        for k, v in sesq.items():
+            ci_progtakers[k] = (int(round(max(progtakers[k] - 1.96 * sesq[k], 0), 0)),
+                                int(round(progtakers[k] + 1.96 * sesq[k], 0)))
+        t_se = round((time()-t0_se), 0)
+        # print a timing message for summary statistics (costs, progtakers)
+        print('Completed computing standard errors for summary estimates. Time needed = %s seconds' % t_se)
 
         # Save output
-        out_costs = pd.DataFrame.from_dict(costs, orient='index')
-        out_costs = out_costs.reset_index()
-        out_costs.columns = ['type', 'cost']
+        # cost
+        varname_summary = 'cost'
+        fp_out_summary = '%s/program_%s_%s_%s.csv' % (output_directory, varname_summary, self.st, self.out_id)
+        out = self.save_summary(costs, ci_costs, varname_summary, fp_out_summary)
+        message = 'Output saved - cost summary. Total cost = $%s million %s dollars' % \
+                  (round(out.loc[out['type']=='total', 'cost'].values[0]/1000000, 1), self.fmla_wave)
+        print(message)
 
-        out_ci = pd.DataFrame.from_dict(ci, orient='index')
+        # progtaker
+        varname_summary = 'progtaker'
+        fp_out_summary = '%s/program_%s_%s_%s.csv' % (output_directory, varname_summary, self.st, self.out_id)
+        out = self.save_summary(progtakers, ci_progtakers, varname_summary, fp_out_summary)
+        message = 'Output saved - progtaker summary. Total progtakers = $%s' % \
+                  (round(out.loc[out['type']=='any', 'progtaker'].values[0]/1))
+        print(message)
+
+
+        # out_costs = pd.DataFrame.from_dict(costs, orient='index')
+        # out_costs = out_costs.reset_index()
+        # out_costs.columns = ['type', 'cost']
+        #
+        # out_ci = pd.DataFrame.from_dict(ci, orient='index')
+        # out_ci = out_ci.reset_index()
+        # out_ci.columns = ['type', 'ci_lower', 'ci_upper']
+        #
+        # out = pd.merge(out_costs, out_ci, how='left', on='type')
+        #
+        # d_tix = {'own': 1, 'matdis': 2, 'bond': 3, 'illchild': 4, 'illspouse': 5, 'illparent': 6, 'total': 7}
+        # out['tix'] = [d_tix[x] for x in out['type']]
+        #
+        # out = out.sort_values(by='tix')
+        # del out['tix']
+        #
+        # out.to_csv('%s/program_cost_%s_%s.csv' % (output_directory, self.st, self.out_id), index=False)
+        # message = 'Output saved. Total cost = $%s million %s dollars' % \
+        #           (round(out.loc[out['type']=='total', 'cost'].values[0]/1000000, 1), self.fmla_wave)
+        # print(message)
+        self.progress += 10 / len(self.prog_para)
+        self.__put_queue({'type': 'progress', 'engine': sim_num, 'value': self.progress})
+        self.__put_queue({'type': 'message', 'engine': sim_num, 'value': message})
+        return out  # df of leave type specific costs and total cost, along with ci's
+
+    def save_summary(self, dct_summary, dct_ci, varname_summary, fp_out_summary):
+        '''
+
+        :param dct_summary: dict of summary statistics, like costs
+        :param dct_ci: dict of confidence interval
+        :param varname_summary:  variable name string, like 'cost', 'progtaker', TB used in out col label
+        :param fp_out_summary: fp to save summary table
+        :return:
+        '''
+        # save output summary table (costs, progtakers)
+        out_level = pd.DataFrame.from_dict(dct_summary, orient='index')
+        out_level = out_level.reset_index()
+        out_level.columns = ['type', varname_summary]
+
+        out_ci = pd.DataFrame.from_dict(dct_ci, orient='index')
         out_ci = out_ci.reset_index()
         out_ci.columns = ['type', 'ci_lower', 'ci_upper']
 
-        out = pd.merge(out_costs, out_ci, how='left', on='type')
-
-        d_tix = {'own': 1, 'matdis': 2, 'bond': 3, 'illchild': 4, 'illspouse': 5, 'illparent': 6, 'total': 7}
+        out = pd.merge(out_level, out_ci, how='left', on='type')
+        if varname_summary=='cost':
+            d_tix = {'own': 1, 'matdis': 2, 'bond': 3, 'illchild': 4, 'illspouse': 5, 'illparent': 6, 'total': 7}
+        if varname_summary=='progtaker':
+            d_tix = {'own': 1, 'matdis': 2, 'bond': 3, 'illchild': 4, 'illspouse': 5, 'illparent': 6, 'any': 7}
         out['tix'] = [d_tix[x] for x in out['type']]
 
         out = out.sort_values(by='tix')
         del out['tix']
 
-        out.to_csv('%s/program_cost_%s_%s.csv' % (output_directory, self.st, self.out_id), index=False)
-        message = 'Output saved. Total cost = $%s million %s dollars' % \
-                  (round(out.loc[out['type']=='total', 'cost'].values[0]/1000000, 1), self.fmla_wave)
-        print(message)
-        self.progress += 10 / len(self.prog_para)
-        self.__put_queue({'type': 'progress', 'engine': sim_num, 'value': self.progress})
-        self.__put_queue({'type': 'message', 'engine': sim_num, 'value': message})
-        return out  # df of leave type specific costs and total cost, along with ci's
+        # out.to_csv('%s/program_%s_%s_%s.csv' % (varname_summary, fp_out_summary, self.st, self.out_id), index=False)
+        out.to_csv(fp_out_summary, index=False)
+
+        return out
+
+
 
     def create_chart(self, out, sim_num):
         output_directory = self.output_directories[sim_num]
@@ -787,7 +866,7 @@ class SimulationEngine:
             try:
                 self.save_program_parameters(sim_num)
                 self.get_acs_simulated(sim_num)
-                self.get_cost(sim_num)
+                self.get_summary(sim_num)
             except Exception as e:
                 self.__put_queue({'type': 'error', 'engine': sim_num, 'value': e})
                 raise
